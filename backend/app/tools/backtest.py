@@ -239,6 +239,59 @@ async def intra_week_long(start_date: str, end_date: str, long_day: List[str], c
 
 # Define additional tools to intepret the Historical Data of the Portfolio
 @tool
+async def plot_pnl_history() -> Dict[str, str]:
+    """
+    Plot the PNL history of the most recent backtest.
+    The output should looks like this:
+    "Here is the PNL plot for the recent strategy: ![PNL Plot](http://localhost:8000/static/images/hit_ratio_plot_26f91791416e4cab846b1ab1778cae84.png)"
+    Do not forget the localhost URL, as this is where the plot will be served from.
+    """
+    most_recent_backtest = get_most_recent_backtest()
+    if most_recent_backtest is not None:
+        portfolio_history = most_recent_backtest.get("portfolio_history", [])
+        pnl_df = pd.DataFrame(portfolio_history)
+
+        if not pnl_df.empty:
+            pnl_df['date'] = pd.to_datetime(pnl_df['date'], format='%Y-%m-%d')
+            pnl_df.set_index('date', inplace=True)
+            pnl_df.sort_index(inplace=True)
+
+            print("Got realized PnL history data")
+            print(pnl_df[['total_realised_pnl']].head())
+
+            try:
+                # Ensure static/images directory exists
+                download_dir = "app/static/images"
+                os.makedirs(download_dir, exist_ok=True)
+
+                # Plot
+                print("Creating realized PnL plot...")
+                pnl_df['total_realised_pnl'].plot(title='Realized PnL Over Time', figsize=(12, 6))
+                plt.xlabel('Date')
+                plt.ylabel('Realized PnL')
+                plt.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+                plt.grid(True)
+
+                # Save
+                filename = f"realised_pnl_plot_{uuid.uuid4().hex}.png"
+                filepath = os.path.join(download_dir, filename)
+                print(f"Saving plot to {filepath}...")
+                plt.savefig(filepath, bbox_inches="tight")
+                plt.close()
+                print("Plot saved successfully.")
+
+            except Exception as e:
+                print("An error occurred while generating/saving the plot:", e)
+
+            return {
+                "image_url": f"static/images/{filename}",
+                "description": f"Realized PnL plot saved at {filename}"
+            }
+
+        else:
+            print("Portfolio history is empty. No plot generated.")
+
+@tool
 async def analyse_hit_rate(rate: str="M") -> Dict[str, Union[List[Dict[str, Any]], float]]: # Need to use firebase to store the memory of the completed trades
     """
     After backtesting a strategy and obtaining the respective dataframes, make use of the completed_trades dataframe to analyse the number of winning trades.

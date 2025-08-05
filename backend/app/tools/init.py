@@ -13,7 +13,7 @@ async def final_answer(answer: str, tools_used: list[str]) -> dict[str, str | li
 tools = [add, subtract, multiply, exponentiate, final_answer, 
          news.getLatestBBCNews, news.getLatestReutersNews, news.getEarningsCalendar,
          backtest.intra_week_long, backtest.intra_week_short, backtest.analyse_hit_rate, backtest.analyse_completed_trades, backtest.analyse_sharpe_ratio,
-         backtest.plot_hit_rate]
+         backtest.plot_hit_rate, backtest.plot_pnl_history]
 
 # note when we have sync tools we use tool.func, when async we use tool.coroutine
 name2tool = {tool.name: tool.coroutine for tool in tools}

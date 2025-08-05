@@ -20,9 +20,6 @@ class Portfolio:
         #         'ticker': 'USDPHP=X',
         #         'volume': 1000,
         #         'price': 50.0,
-        #         'cash_remaining': 5000,
-        #         'portfolio_value': 10000
-        #         'total_realised_pnl': 0 # This is the total realised P&L for the portfolio
         #   
         #     },
         self.completed_trades = []
@@ -37,10 +34,11 @@ class Portfolio:
         #         'pnl': 5000,
         #     }
         self.portfolio_history = [] # Used to log portfolio at the end of each day
+        # 'date': '2022-01-01',
         # 'cash_remaining': self.cash,
         # "portfolio_value": self.get_portfolio_value(date),
+        # "daily_return": adjusted_return, # Adjusted return for the day
         # "total_realised_pnl": self.total_realised_pnl # Record total realised P&L
-
         self.total_realised_pnl = 0
 
         self.deposited_cash = initial_cash
@@ -393,17 +391,15 @@ class Portfolio:
             previous_value = self.portfolio_history[-1]['portfolio_value']
             adjusted_return = ((portfolio_value - previous_value - deposits_today) / previous_value) * 100 if previous_value != 0 else 0
         
+        # Want to include unrealised P&L in the portfolio history
         self.portfolio_history.append({
             'date': date,
             'cash_remaining': self.cash,
             'portfolio_value': portfolio_value,
-            'daily_return': adjusted_return,
+            'daily_return': adjusted_return, # Percentage return for the day
             'total_realised_pnl': self.total_realised_pnl
         })
         
-        # 'cash_remaining': self.cash,
-        # "portfolio_value": self.get_portfolio_value(date),
-        # "total_realised_pnl": self.total_realised_pnl # Record total realised P&L
 
     @staticmethod
     def get_ticker_value(date, ticker, price_type: str = 'Open'):
