@@ -112,12 +112,25 @@ def generate_backtest_dataframe(start_date: str, end_date: str) -> pd.Series:
 
 # Strategies should be implemented as tools and they should return a panda dataframe of the performance of the strategy
 @tool
-async def intra_week_short(start_date: str, end_date: str, short_day: List[str], cover_day: List[str], ticker: str) -> Dict[str, Union[str, float, List[Dict[str, Any]]]]:
+async def intra_week_short_and_cover(start_date: str, end_date: str, short_day: List[str], cover_day: List[str], ticker: str) -> Dict[str, Union[str, float, List[Dict[str, Any]]]]:
     """
     Backtest an intra-week trading strategy of shorting a ticker and covering that short in the same week. 
     Tell the user the performance of the strategy, such as the total PNL percentage, total PNL in USD, total deposited to execute the trade. 
     This strategy will be completed over the specified date range.
     This is a trading strategy.
+
+    Your summary **must include**:
+        - Total capital deposited (`total_cash`).
+        - The final portfolio value at the end of the backtest. This should be taken from portfolio_history.
+        - The total profit or loss (PnL) expressed both as a **raw amount** and as a **percentage** of the initial capital.
+
+        You should also optionally include (if available):
+        - The time period of the backtest.
+        - Number of trades executed.
+        - Win rate (percentage of profitable trades).
+        - Maximum drawdown.
+        - Sharpe ratio or any other relevant risk-adjusted performance metric.
+        - Notable insights about volatility or trade distribution.
     
     Args:
         start_date (str): The start date for the backtest in 'YYYY-MM-DD' format.
@@ -130,6 +143,7 @@ async def intra_week_short(start_date: str, end_date: str, short_day: List[str],
         Description: A string describing the backtest
         Overall performance percentage: A percentage representing the overall performance of the strategy
         Portfolio History: A pd.Dataframe that logs daily portfolio information
+        Trade History: A pd.Dataframe that logs the trades executed during the backtest
         Completed Trades: A pd.Dataframe that logs the completed trades, as well as the PNL of each completed trade
 
     """
@@ -167,7 +181,8 @@ async def intra_week_short(start_date: str, end_date: str, short_day: List[str],
             "overall_performance_percentage": pnl_percentage,
             "portfolio_history": portfolio.portfolio_history,
             "trade_history": portfolio.trade_history,
-            "completed_trades": portfolio.completed_trades
+            "completed_trades": portfolio.completed_trades,
+            "cash_deposited": portfolio.deposited_cash,
         }
 
     # Save the output to Firestore
@@ -176,12 +191,25 @@ async def intra_week_short(start_date: str, end_date: str, short_day: List[str],
     return output
 
 @tool
-async def intra_week_long(start_date: str, end_date: str, long_day: List[str], close_day: List[str], ticker: str) -> Dict[str, Union[str, float, List[Dict[str, Any]]]]:
+async def intra_week_long_and_close(start_date: str, end_date: str, long_day: List[str], close_day: List[str], ticker: str) -> Dict[str, Union[str, float, List[Dict[str, Any]]]]:
     """
     Backtest an intra-week trading strategy of longing a ticker and closing that long in the same week.
     Tell the user the performance of the strategy, such as the total PNL percentage, total PNL in USD, total deposited to execute the trade.
     This strategy will be completed over the specified date range.
     This is a trading strategy.
+
+     Your summary **must include**:
+        - Total capital deposited (`total_cash`).
+        - The final portfolio value at the end of the backtest. This should be taken from portfolio_history.
+        - The total profit or loss (PnL) expressed both as a **raw amount** and as a **percentage** of the initial capital.
+
+        You should also optionally include (if available):
+        - The time period of the backtest.
+        - Number of trades executed.
+        - Win rate (percentage of profitable trades).
+        - Maximum drawdown.
+        - Sharpe ratio or any other relevant risk-adjusted performance metric.
+        - Notable insights about volatility or trade distribution.
     
     Args:
         start_date (str): The start date for the backtest in 'YYYY-MM-DD' format.
@@ -194,6 +222,7 @@ async def intra_week_long(start_date: str, end_date: str, long_day: List[str], c
         Description: A string describing the backtest
         Overall performance percentage: A percentage representing the overall performance of the strategy
         Portfolio History: A pd.Dataframe that logs daily portfolio information
+        Trade History: A pd.Dataframe that logs the trades executed during the backtest
         Completed Trades: A pd.Dataframe that logs the completed trades, as well as the PNL of each completed trade
     """
 
@@ -209,10 +238,10 @@ async def intra_week_long(start_date: str, end_date: str, long_day: List[str], c
     time_frame = generate_backtest_dataframe(start_date, end_date)
 
     for date, day in time_frame.items():
-        if portfolio.cash < 10000:
-            portfolio.deposit(date, 10000)
 
         if day in long_day:
+            if portfolio.cash < 10000:
+                portfolio.deposit(date, 10000)
             portfolio.long(date, ticker, 10000, OHLCV_data='Open')
 
         elif day in close_day:
@@ -225,11 +254,12 @@ async def intra_week_long(start_date: str, end_date: str, long_day: List[str], c
     print(f"Total PNL Percentage: {pnl_percentage}")
 
     output = {
-            "description": f"Intra-week short strategy from {start_date} to {end_date} for ticker {ticker}.",
+            "description": f"Intra-week long strategy from {start_date} to {end_date} for ticker {ticker}.",
             "overall_performance_percentage": pnl_percentage,
             "portfolio_history": portfolio.portfolio_history,
             "trade_history": portfolio.trade_history,
-            "completed_trades": portfolio.completed_trades
+            "completed_trades": portfolio.completed_trades,
+            "cash_deposited": portfolio.deposited_cash,
         }
     
     # Save the output to Firestore
@@ -239,13 +269,20 @@ async def intra_week_long(start_date: str, end_date: str, long_day: List[str], c
 
 # Define additional tools to intepret the Historical Data of the Portfolio
 @tool
-async def plot_pnl_history() -> Dict[str, str]:
+async def plot_portfolio_history(data: str) -> Dict[str, str]:
     """
-    Plot the PNL history of the most recent backtest.
+    Plot a component of the portfolio history of the most recent backtest. The possible components are:
+        - total_realised_pnl: The total realised PnL of the portfolio over time
+        - total_unrealised_pnl: The unrealised PnL of the portfolio over time
+        - cash_remaining: The cash remaining in the portfolio over time
+        - portfolio_value: The value of the portfolio over time
+    You should interpret the data string to determine which component to plot.
+    
     The output should looks like this:
     "Here is the PNL plot for the recent strategy: ![PNL Plot](http://localhost:8000/static/images/hit_ratio_plot_26f91791416e4cab846b1ab1778cae84.png)"
     Do not forget the localhost URL, as this is where the plot will be served from.
     """
+    print("Data to plot intepretted as : ", data)
     most_recent_backtest = get_most_recent_backtest()
     if most_recent_backtest is not None:
         portfolio_history = most_recent_backtest.get("portfolio_history", [])
@@ -257,7 +294,7 @@ async def plot_pnl_history() -> Dict[str, str]:
             pnl_df.sort_index(inplace=True)
 
             print("Got realized PnL history data")
-            print(pnl_df[['total_realised_pnl']].head())
+            print(pnl_df[[data]].head())
 
             try:
                 # Ensure static/images directory exists
@@ -266,7 +303,7 @@ async def plot_pnl_history() -> Dict[str, str]:
 
                 # Plot
                 print("Creating realized PnL plot...")
-                pnl_df['total_realised_pnl'].plot(title='Realized PnL Over Time', figsize=(12, 6))
+                pnl_df[data].plot(title='Realized PnL Over Time', figsize=(12, 6))
                 plt.xlabel('Date')
                 plt.ylabel('Realized PnL')
                 plt.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)

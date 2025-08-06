@@ -397,7 +397,10 @@ class Portfolio:
             'cash_remaining': self.cash,
             'portfolio_value': portfolio_value,
             'daily_return': adjusted_return, # Percentage return for the day
-            'total_realised_pnl': self.total_realised_pnl
+            'total_realised_pnl': self.total_realised_pnl, # Record total realised P&L
+            'total_unrealised_pnl': portfolio_value - self.deposited_cash
+            # 'total_realised_pnl': (self.total_realised_pnl / self.deposited_cash) * 100 if self.deposited_cash != 0 else 0, # Record total realised P&L as a percentage of deposited cash
+            # "total_unrealised_pnl": ((portfolio_value - self.deposited_cash) / self.deposited_cash) * 100 if self.deposited_cash != 0 else 0, # Unrealised P&L as the difference between portfolio value and deposited cash
         })
         
 
